@@ -19,60 +19,80 @@ struct Compare {
     }
 };
 
+map<char, int> freqMap;
+map<char, string> codeMap;
 
-void generate(Node* root, string code, map<char, string>& codes) {
+void generateCodes(Node* root, string code) {
     if (!root) return;
 
-
-    if (!root->left && !root->right) {
-        codes[root->ch] = code;
-        return;
+    if (root->ch != '$') {
+        codeMap[root->ch] = code;
+        cout << root->ch << " : " << code << endl;
     }
 
-    generate(root->left, code + "0", codes);
-    generate(root->right, code + "1", codes);
+    generateCodes(root->left, code + "0");
+    generateCodes(root->right, code + "1");
 }
 
 int main() {
-    string s;
-    cout << "Enter string: ";
-    cin >> s;
-
-
-    map<char, int> freq;
-    for (char c : s) freq[c]++;
-
+    int n;
+    cout << "Enter number of characters: ";
+    cin >> n;
 
     priority_queue<Node*, vector<Node*>, Compare> pq;
-    for (auto it : freq)
-        pq.push(new Node(it.first, it.second));
 
-    while (pq.size() > 1) {
-        Node* a = pq.top(); pq.pop();
-        Node* b = pq.top(); pq.pop();
+    for (int i = 0; i < n; i++) {
+        char ch;
+        int freq;
+        cout << "Enter character and frequency: ";
+        cin >> ch >> freq;
 
-        Node* merged = new Node('\0', a->freq + b->freq);
-        merged->left = a;
-        merged->right = b;
-
-        pq.push(merged);
+        freqMap[ch] = freq;
+        pq.push(new Node(ch, freq));
     }
 
-    Node* root = pq.top();
+    while (pq.size() > 1) {
+        Node* left = pq.top(); pq.pop();
+        Node* right = pq.top(); pq.pop();
 
-    map<char, string> codes;
-    generate(root, "", codes);
+        Node* newNode = new Node('$', left->freq + right->freq);
+        newNode->left = left;
+        newNode->right = right;
+
+        pq.push(newNode);
+    }
 
     cout << "\nHuffman Codes:\n";
-    for (auto it : codes)
-        cout << it.first << " : " << it.second << endl;
+    generateCodes(pq.top(), "");
 
-    string encoded = "";
-    for (char c : s)
-        encoded += codes[c];
+    int totalFixedBits = 0;
+    int totalHuffmanBits = 0;
 
-    cout << "\nEncoded string: " << encoded << endl;
+    int fixedBitsPerChar = ceil(log2(n));
+
+    for (auto it : freqMap) {
+        char ch = it.first;
+        int freq = it.second;
+
+        totalFixedBits += freq * fixedBitsPerChar;
+        totalHuffmanBits += freq * codeMap[ch].length();
+    }
+
+    cout << "\nFixed length bits per character = "
+         << fixedBitsPerChar << endl;
+
+    cout << "Total bits needed (Fixed Length Coding) = "
+         << totalFixedBits << endl;
+
+    cout << "Total bits used (Huffman Coding) = "
+         << totalHuffmanBits << endl;
+
+    cout << "Total bits reduced = "
+         << totalFixedBits - totalHuffmanBits << endl;
 
     return 0;
 }
+
+
+
 
