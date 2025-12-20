@@ -1,98 +1,58 @@
-#include <bits/stdc++.h>
+#include<bits/stdc++.h>
 using namespace std;
 
-struct Node {
-    char ch;
-    int freq;
-    Node *left, *right;
+int main(){
+    string text;
+    cin>>text;
 
-    Node(char c, int f) {
-        ch = c;
-        freq = f;
-        left = right = NULL;
-    }
-};
+    map<char,int>freq;
+    for(char c:text)freq[c]++;
 
-struct Compare {
-    bool operator()(Node* a, Node* b) {
-        return a->freq > b->freq;
-    }
-};
-
-map<char, int> freqMap;
-map<char, string> codeMap;
-
-void generateCodes(Node* root, string code) {
-    if (!root) return;
-
-    if (root->ch != '$') {
-        codeMap[root->ch] = code;
-        cout << root->ch << " : " << code << endl;
+    cout<<"Frequencies : "<<endl;
+    for(auto it : freq) {
+        cout<<it.first<<" : "<<it.second<<endl;
     }
 
-    generateCodes(root->left, code + "0");
-    generateCodes(root->right, code + "1");
-}
+    cout<<endl;
 
-int main() {
-    int n;
-    cout << "Enter number of characters: ";
-    cin >> n;
+    priority_queue<pair<int,string>,vector<pair<int,string>>,greater<pair<int,string>>>pq;
 
-    priority_queue<Node*, vector<Node*>, Compare> pq;
-
-    for (int i = 0; i < n; i++) {
-        char ch;
-        int freq;
-        cout << "Enter character and frequency: ";
-        cin >> ch >> freq;
-
-        freqMap[ch] = freq;
-        pq.push(new Node(ch, freq));
+    for(auto it:freq){
+        pq.push({it.second,string(1,it.first)});
     }
 
-    while (pq.size() > 1) {
-        Node* left = pq.top(); pq.pop();
-        Node* right = pq.top(); pq.pop();
+    map<char,string>code;
 
-        Node* newNode = new Node('$', left->freq + right->freq);
-        newNode->left = left;
-        newNode->right = right;
+    while(pq.size()>1){
+        auto left = pq.top();pq.pop();
+        auto right = pq.top(); pq.pop();
 
-        pq.push(newNode);
+        for(char c:left.second)code[c]="0"+code[c];
+        for(char c:right.second)code[c]="1"+code[c];
+
+        pq.push({left.first+right.first,left.second+right.second});
     }
 
-    cout << "\nHuffman Codes:\n";
-    generateCodes(pq.top(), "");
+    cout<<"Huffman Codes : "<<endl;
 
-    int totalFixedBits = 0;
-    int totalHuffmanBits = 0;
+    for(auto it:freq) {
+        cout<<it.first<<" : "<<code[it.first]<<endl;
+    }
+    cout<<endl;
 
-    int fixedBitsPerChar = ceil(log2(n));
+    int original= text.length()*8;
+    int compressed = 0;
+    int table_bits = 0;
 
-    for (auto it : freqMap) {
-        char ch = it.first;
-        int freq = it.second;
-
-        totalFixedBits += freq * fixedBitsPerChar;
-        totalHuffmanBits += freq * codeMap[ch].length();
+    for(auto it:freq) {
+        compressed+=it.second*code[it.first].length();
+        table_bits+=8+code[it.first].length();
     }
 
-    cout << "\nFixed length bits per character = "
-         << fixedBitsPerChar << endl;
-
-    cout << "Total bits needed (Fixed Length Coding) = "
-         << totalFixedBits << endl;
-
-    cout << "Total bits used (Huffman Coding) = "
-         << totalHuffmanBits << endl;
-
-    cout << "Total bits reduced = "
-         << totalFixedBits - totalHuffmanBits << endl;
+    cout <<"Original Length : "<< original << endl;
+    cout<<"Compressed message length : "<<compressed<<endl;
+    cout<<"Table : "<<table_bits<<endl;
+    cout <<"New length : "<<compressed+table_bits << endl;
 
     return 0;
 }
-
-
-
-
