@@ -1,0 +1,189 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+
+struct Doctor {
+    string name;
+    string specialty;
+    int available;
+};
+
+struct Ward {
+    string name;
+    string specialty;
+    int beds;
+};
+
+struct Hospital {
+    int id;
+    double x, y;
+    vector<string> specialties;
+    vector<Doctor> doctors;
+    vector<Ward> wards;
+};
+
+struct Patient {
+    int id;
+    string requiredSpecialty;
+    double x, y;
+    int severity;
+};
+
+double dist(double x1, double y1, double x2, double y2) {
+    return sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
+}
+
+/* ---------- Divide & Conquer: Find Nearest Hospital ---------- */
+int nearestHospitalDC(vector<int>& candidates, vector<Hospital>& H, Patient& p, int l, int r) {
+    if (l == r) return candidates[l];
+    int mid = (l + r) / 2;
+    int left = nearestHospitalDC(candidates, H, p, l, mid);
+    int right = nearestHospitalDC(candidates, H, p, mid+1, r);
+
+    double dl = dist(p.x, p.y, H[left].x, H[left].y);
+    double dr = dist(p.x, p.y, H[right].x, H[right].y);
+    return (dl < dr) ? left : right;
+}
+
+/* ---------- DP Allocation per Hospital ---------- */
+int allocatePatientToHospital(Hospital& H, Patient& P) {
+    vector<int> beds;
+    for (auto &w : H.wards) {
+        if (w.specialty == P.requiredSpecialty && w.beds > 0) {
+            beds.push_back(w.beds);
+        }
+    }
+    if (beds.empty()) return -1;
+    // DP: 0/1 Knapsack: max severity served (here single patient)
+    int n = beds.size();
+    vector<vector<int>> dp(n+1, vector<int>(1+1, 0));
+    for (int i=1;i<=n;i++){
+        for (int j=0;j<=1;j++){
+            dp[i][j] = dp[i-1][j];
+            if (j>=1 && beds[i-1]>0){
+                dp[i][j] = max(dp[i][j], dp[i-1][j-1]+P.severity);
+            }
+        }
+    }
+
+    for (auto &w : H.wards){
+        if (w.specialty == P.requiredSpecialty && w.beds>0){
+            w.beds--;
+            return &w - &H.wards[0];
+        }
+    }
+    return -1;
+}
+
+int main() {
+    int hCount;
+    cout << "Enter number of hospitals: ";
+    cin >> hCount;
+
+    vector<Hospital> H(hCount);
+    for (int i = 0; i < hCount; i++) {
+        H[i].id = i+1;
+        cout << "\n--- Hospital " << i+1 << " ---\n";
+        cout << "Location (x y): ";
+        cin >> H[i].x >> H[i].y;
+
+        int specCount;
+        cout << "Number of specialties: ";
+        cin >> specCount;
+        cout << "Enter specialties:\n";
+        for (int j = 0; j < specCount; j++) {
+            string s; cin >> s;
+            H[i].specialties.push_back(s);
+        }
+
+        int dCount;
+        cout << "Number of doctors: ";
+        cin >> dCount;
+        cout << "Enter doctor details (name specialty available[1/0]):\n";
+        for (int j = 0; j < dCount; j++) {
+            Doctor d; cin >> d.name >> d.specialty >> d.available;
+            H[i].doctors.push_back(d);
+        }
+
+        int wCount;
+        cout << "Number of wards: ";
+        cin >> wCount;
+        cout << "Enter ward details (name specialty beds):\n";
+        for (int j = 0; j < wCount; j++) {
+            Ward w; cin >> w.name >> w.specialty >> w.beds;
+            H[i].wards.push_back(w);
+        }
+    }
+
+    int pCount;
+    cout << "\nEnter number of patients: ";
+    cin >> pCount;
+
+    vector<Patient> P(pCount);
+    for (int i=0;i<pCount;i++){
+        P[i].id=i+1;
+        cout << "\n--- Patient " << i+1 << " ---\n";
+        cout << "Required specialty: ";
+        cin >> P[i].requiredSpecialty; cout << P[i].requiredSpecialty << "\n";
+        cout << "Location (x y): ";
+        cin >> P[i].x >> P[i].y; cout << P[i].x << " " << P[i].y << "\n";
+        cout << "Severity (0-100): ";
+        cin >> P[i].severity; cout << P[i].severity << "\n";
+    }
+
+    sort(P.begin(), P.end(), [](Patient &a, Patient &b){ return a.severity>b.severity; });
+
+    cout << "\n=== ALLOCATION RESULTS ===\n";
+
+    for (auto &pt : P){
+        vector<int> candidates;
+        for (int h=0;h<hCount;h++){
+            bool hasSpec=false;
+            for(auto &sp:H[h].specialties)
+                if(sp==pt.requiredSpecialty) hasSpec=true;
+            if(!hasSpec) continue;
+
+            bool docOK=false;
+            for(auto &d:H[h].doctors)
+                if(d.specialty==pt.requiredSpecialty && d.available) docOK=true;
+            if(!docOK) continue;
+
+            bool bedOK=false;
+            for(auto &w:H[h].wards)
+                if(w.specialty==pt.requiredSpecialty && w.beds>0) bedOK=true;
+            if(!bedOK) continue;
+
+            candidates.push_back(h);
+        }
+
+        if(candidates.empty()){
+            cout << "Patient " << pt.id << " → WAITING LIST\n";
+            continue;
+        }
+
+        // Divide & Conquer to find nearest hospital
+        int bestHospital = nearestHospitalDC(candidates,H,pt,0,candidates.size()-1);
+
+        // DP allocation (ward selection)
+        int wardIdx = allocatePatientToHospital(H[bestHospital],pt);
+
+        string doctorName="None";
+        for(auto &d:H[bestHospital].doctors){
+            if(d.specialty==pt.requiredSpecialty && d.available){
+                d.available=0;
+                doctorName=d.name;
+                break;
+            }
+        }
+
+        string wardName=(wardIdx==-1)?"None":H[bestHospital].wards[wardIdx].name;
+
+        cout << "Patient " << pt.id
+             << " → Hospital " << H[bestHospital].id
+             << " | Doctor: " << doctorName
+             << " | Ward: " << wardName
+             << " | Severity: " << pt.severity << "\n";
+    }
+
+    return 0;
+}
